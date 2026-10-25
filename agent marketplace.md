@@ -142,7 +142,19 @@ Use role-based access (chief, market admin, seller), with every admin action log
 
 
 
-A sensible stack: Next.js PWA, neon Postgres, Redis for session and rate limits, and a small grok free model for chat.
+A sensible stack: Next.js PWA, Neon Postgres, Redis for session and rate limits, and a small Groq-hosted model for chat. "Grok" is xAI's model family; Groq is the inference provider. Groq's API is OpenAI-compatible, its free usage has account-level rate limits, and its model lineup changes, so verify current limits and model IDs before launch. Groq currently recommends `openai/gpt-oss-20b` as a replacement for deprecated Llama models; keep the model configurable.
 
+### Oja catalog search integration
+
+The current prototype uses Groq to rank only the existing Oja product catalog for natural-language searches. The model returns catalog IDs, and the app renders product names and prices from its own catalog; the model cannot invent products or change prices. If the API key is missing or Groq is unavailable, search falls back to the existing local keyword matching. This search assistant is separate from bargaining: bargaining decisions and seller price floors remain deterministic backend logic.
+
+Set `GROQ_API_KEY` in `.env.local` (copy `.env.example`) to enable AI search. Keep the key server-side and never commit it. This prototype has no shared rate limiter or persistent search sessions; add Redis-backed limits before exposing it to production traffic.
+
+Research checked 25 October 2026:
+
+- [Groq OpenAI compatibility](https://console.groq.com/docs/openai)
+- [Groq model lifecycle and migration guidance](https://console.groq.com/docs/deprecations)
+- [Groq GPT-OSS 20B model page](https://console.groq.com/docs/model/openai/gpt-oss-20b)
+- [Groq rate limits](https://console.groq.com/docs/rate-limits)
 
 

@@ -36,6 +36,7 @@ button { color: inherit; }
 .search input::placeholder { color: #a0a69f; }
 .search kbd { margin-right: 10px; color: #a1a69e; font: 10px "DM Sans", sans-serif; white-space: nowrap; }
 .search button { height: 35px; padding: 0 19px; border: 0; border-radius: 5px; background: var(--green); color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
+.search button:disabled { opacity: .7; cursor: wait; }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 17px; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; }
 .location-button { gap: 7px; text-align: left; }
@@ -106,6 +107,7 @@ h1, h2, h3, p { margin-top: 0; }
 .filter-chip { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 8px 13px; border: 1px solid #e5e5dc; border-radius: 30px; background: transparent; color: #71796f; font-size: 10px; cursor: pointer; transition: all .18s; }
 .filter-chip:hover { border-color: #b6c2ac; color: var(--green); }
 .filter-chip.selected { border-color: var(--green); background: var(--green); color: white; }
+.search-assistant-status { margin: -8px 0 16px; color: var(--muted); font-size: 10px; }
 .chip-count { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #ffffff25; font-size: 8px; }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 27px 17px; }
 .product-card { min-width: 0; }

@@ -23,6 +23,9 @@ function formatNaira(amount) {
 export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [aiProductIds, setAiProductIds] = useState(null);
+  const [searchStatus, setSearchStatus] = useState("");
+  const [searchError, setSearchError] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [favorites, setFavorites] = useState(() => new Set());
   const [activeProduct, setActiveProduct] = useState(null);
@@ -36,20 +39,28 @@ export default function HomePage() {
   const offerRef = useRef(null);
   const messagesRef = useRef(null);
   const toastTimer = useRef(null);
+  const searchRequestRef = useRef(0);
 
   const visibleProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return products.filter((product) => {
+    const searchProducts = aiProductIds
+      ? aiProductIds
+          .map((id) => products.find((product) => product.id === id))
+          .filter(Boolean)
+      : products;
+    return searchProducts.filter((product) => {
       const matchesFilter =
         activeFilter === "All" ||
         product.category === activeFilter ||
         (activeFilter === "Style" && product.category === "Naija made");
-      const matchesQuery = `${product.name} ${product.seller} ${product.category}`
-        .toLowerCase()
-        .includes(query);
+      const matchesQuery =
+        aiProductIds !== null ||
+        `${product.name} ${product.seller} ${product.category}`
+          .toLowerCase()
+          .includes(query);
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, search]);
+  }, [activeFilter, aiProductIds, search]);
 
   function showToast(message) {
     setToast(message);
@@ -165,17 +176,57 @@ export default function HomePage() {
   );
 
   function selectFilter(filter) {
+    searchRequestRef.current += 1;
+    setAiProductIds(null);
+    setSearchStatus("");
+    setSearchError("");
     setActiveFilter(filter);
   }
 
   function resetFilters() {
+    searchRequestRef.current += 1;
     setActiveFilter("All");
     setSearch("");
+    setAiProductIds(null);
+    setSearchStatus("");
+    setSearchError("");
   }
 
-  function handleSearchSubmit(event) {
+  async function handleSearchSubmit(event) {
     event.preventDefault();
     document.querySelector("#products")?.scrollIntoView({ behavior: "smooth" });
+    const query = search.trim();
+    const requestId = ++searchRequestRef.current;
+    setAiProductIds(null);
+    setSearchError("");
+
+    if (!query) {
+      setSearchStatus("");
+      return;
+    }
+
+    setSearchStatus("searching");
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, category: activeFilter }),
+      });
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.productIds)) {
+        throw new Error(data.error || "AI search is unavailable.");
+      }
+      if (requestId !== searchRequestRef.current) return;
+      setAiProductIds(data.productIds);
+      setSearchStatus("ai");
+    } catch (error) {
+      if (requestId !== searchRequestRef.current) return;
+      setAiProductIds(null);
+      setSearchError(
+        error instanceof Error ? error.message : "AI search failed.",
+      );
+      setSearchStatus("fallback");
+    }
   }
 
   function toggleFavorite(product) {
@@ -210,14 +261,22 @@ export default function HomePage() {
             <input
               ref={searchRef}
               type="search"
-              placeholder="Search for something good..."
+              placeholder="Try “gifts under ₦20,000”…"
               autoComplete="off"
               aria-label="Search products"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                searchRequestRef.current += 1;
+                setSearch(event.target.value);
+                setAiProductIds(null);
+                setSearchStatus("");
+                setSearchError("");
+              }}
             />
             <kbd>⌘ K</kbd>
-            <button type="submit">Search</button>
+            <button type="submit" disabled={searchStatus === "searching"}>
+              {searchStatus === "searching" ? "Thinking…" : "Ask Oja"}
+            </button>
           </form>
 
           <div className="header-actions">
@@ -302,6 +361,15 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+          {searchStatus && (
+            <p className="search-assistant-status" role="status" aria-live="polite">
+              {searchStatus === "searching"
+                ? "Oja is understanding your search…"
+                : searchStatus === "ai"
+                  ? `Oja AI matched ${visibleProducts.length} ${visibleProducts.length === 1 ? "find" : "finds"} in the catalog.`
+                  : `${searchError} Showing keyword matches instead.`}
+            </p>
+          )}
           <div className="product-grid" aria-live="polite">
             {visibleProducts.map((product) => {
               const saved = favorites.has(product.id);
