@@ -11,8 +11,5 @@
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
-  },
-  "devDependencies": {
-    "@next/swc-darwin-arm64": "^15.5.28"
   }
 }
