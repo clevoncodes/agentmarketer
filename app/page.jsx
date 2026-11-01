@@ -20,6 +20,30 @@ function formatNaira(amount) {
   return `₦${money.format(amount)}`;
 }
 
+function parseOfferAmount(text) {
+  const amountMatch = text.match(
+    /(?:₦|NGN\s*)(\d[\d,]*(?:\.\d+)?)\s*(k|thousand)?/i,
+  );
+  const plainAmountMatch = text.match(
+    /\b(\d[\d,]*(?:\.\d+)?)\s*(k|thousand)?\b/i,
+  );
+  const amountOnly = /^\s*\d[\d,]*(?:\.\d+)?\s*(?:k|thousand)?\s*$/i.test(text);
+  const hasOfferIntent =
+    /\b(?:offer|pay|budget|price|amount|cost|afford|cheaper|lower|discount|deal|take|do|give|have|about|worth|get)\b/i.test(
+      text,
+    );
+
+  if (!amountOnly && !hasOfferIntent && !amountMatch) return null;
+
+  const match = amountMatch || plainAmountMatch;
+  if (!match) return null;
+
+  const numericAmount = Number(match[1].replaceAll(",", ""));
+  const multiplier = /^(?:k|thousand)$/i.test(match[2] || "") ? 1000 : 1;
+  const amount = numericAmount * multiplier;
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}
+
 export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -77,7 +101,7 @@ export default function HomePage() {
     setMessages([
       {
         sender: "agent",
-        text: `Hey! ${product.seller} has this listed for ${formatNaira(product.price)}. Want to make an offer?`,
+        text: `Hi! Thanks for checking out ${product.name}. It’s listed at ${formatNaira(product.price)}. What price did you have in mind? Let’s see if we can agree.`,
       },
     ]);
   }
@@ -90,43 +114,66 @@ export default function HomePage() {
     event.preventDefault();
     if (!activeProduct || ended) return;
 
-    const amountText = offer.trim().replace(/[₦,\s]/g, "");
-    const amount = /^\d+$/.test(amountText) ? Number(amountText) : NaN;
-    if (!Number.isSafeInteger(amount) || amount <= 0) {
-      setOfferError("Enter a valid offer in naira.");
+    const buyerMessage = offer.trim();
+    if (!buyerMessage) {
+      setOfferError("Tell Oja your offer or ask what price I can do.");
       offerRef.current?.focus();
+      return;
+    }
+
+    const amount = parseOfferAmount(buyerMessage);
+    const isPriceQuestion =
+      /\b(?:price|cost|offer|budget|amount|cheaper|lower|discount|deal|pay)\b|\bwhat about\b|\bbest price\b/i.test(
+        buyerMessage,
+      );
+    const nextMessages = [...messages, { sender: "user", text: buyerMessage }];
+
+    if (amount === null && !isPriceQuestion) {
+      nextMessages.push({
+        sender: "agent",
+        text: "I’m happy to help. What price did you have in mind, or would you like me to make you an offer?",
+      });
+      setMessages(nextMessages);
+      setOffer("");
+      setOfferError("");
       return;
     }
 
     const nextOfferCount = offerCount + 1;
     const floorPrice = Math.round(activeProduct.price * (1 - activeProduct.discount));
-    const counterPrices = [
-      Math.round(activeProduct.price - (activeProduct.price - floorPrice) * 0.5),
-      Math.round(activeProduct.price - (activeProduct.price - floorPrice) * 0.8),
-      floorPrice,
-    ];
-    const nextMessages = [...messages, { sender: "user", text: `My offer: ${formatNaira(amount)}` }];
+    const discountAmount = activeProduct.price - floorPrice;
+    const counterDiscountShares = [1 / 6, 13 / 30, 7 / 12];
+    const counterPrices = counterDiscountShares.map((share) =>
+      Math.max(floorPrice, Math.round(activeProduct.price - discountAmount * share)),
+    );
 
-    if (amount >= floorPrice) {
+    if (amount !== null && amount >= floorPrice) {
       nextMessages.push({
         sender: "agent",
-        text: `Deal! ${formatNaira(amount)} works. That's a fair price. Your price is only locked in when you confirm an order — checkout isn't connected in this demo.`,
+        text: `That works for me — ${formatNaira(amount)} it is! Your price is only locked in when you confirm an order; checkout isn't connected in this demo.`,
       });
       setEnded(true);
     } else if (nextOfferCount === 4) {
+      const lastCounter = counterPrices[counterPrices.length - 1];
       nextMessages.push({
         sender: "agent",
-        text: `I couldn't get us to a price that works this time. The seller's best available price is ${formatNaira(floorPrice)}. You can always come back another day.`,
+        text: `I understand, but I can’t meet that amount. My offer of ${formatNaira(lastCounter)} still stands. No pressure — you’re welcome to come back if it works for you.`,
       });
       setEnded(true);
     } else {
       const counter = counterPrices[nextOfferCount - 1];
+      const responseByTurn = [
+        amount === null
+          ? `I can come down from ${formatNaira(activeProduct.price)} to ${formatNaira(counter)}. Would that work for you?`
+          : `I hear you — ${formatNaira(amount)} is lower than I can do, but I can meet you at ${formatNaira(counter)}. Could you stretch to that?`,
+        amount === null
+          ? `I can make it ${formatNaira(counter)}. How does that sound?`
+          : `Thanks for working with me. I can do ${formatNaira(counter)}. Does that feel fair?`,
+        `I’ve come down to ${formatNaira(counter)}. Could you do that?`,
+      ];
       nextMessages.push({
         sender: "agent",
-        text:
-          nextOfferCount === 3
-            ? `I've taken it to the seller's best price: ${formatNaira(counter)}. If that works for you, make an offer at or above it.`
-            : `Thanks for the offer! The seller can do ${formatNaira(counter)}. What do you think?`,
+        text: responseByTurn[nextOfferCount - 1],
       });
     }
 
@@ -451,14 +498,13 @@ export default function HomePage() {
               {messages.map((message, index) => <div className={`message ${message.sender === "user" ? "user" : ""}`} key={`${index}-${message.sender}`}>{message.text}</div>)}
             </div>
             <div className="chat-footer">
-              <p className="chat-disclaimer">Demo only: offer limits are simulated in your browser. Real prices must be checked by the server; only a confirmed order locks in your price.</p>
+              <p className="chat-disclaimer">Demo only: Oja negotiates in the seller’s voice, but prices and offer limits are simulated in your browser. Only a confirmed order locks in a real price.</p>
               <form className="offer-form" onSubmit={submitOffer}>
-                <label className="sr-only" htmlFor="offer-input">Your offer in naira</label>
-                <span className="naira-symbol">₦</span>
-                <input ref={offerRef} id="offer-input" inputMode="numeric" autoComplete="off" placeholder="Enter your offer" aria-describedby="offer-hint" value={offer} onChange={(event) => { setOffer(event.target.value); setOfferError(""); }} disabled={ended} />
-                <button type="submit" className="offer-button" disabled={ended}>Make an offer <span aria-hidden="true">↗</span></button>
+                <label className="sr-only" htmlFor="offer-input">Message Oja with your offer or price question</label>
+                <input ref={offerRef} id="offer-input" type="text" autoComplete="off" placeholder="Try “I have ₦2,000 — can you do that?”" aria-describedby="offer-hint" value={offer} onChange={(event) => { setOffer(event.target.value); setOfferError(""); }} disabled={ended} />
+                <button type="submit" className="offer-button" disabled={ended}>Send <span aria-hidden="true">↗</span></button>
               </form>
-              <small id="offer-hint">{offerError || "Type an amount in naira to get started."}</small>
+              <small id="offer-hint">{offerError || "Share an offer or ask what price I can do."}</small>
             </div>
           </section>
         </div>

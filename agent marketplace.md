@@ -18,7 +18,7 @@ So split the work in two:
 
 
 
-\- \*\*Negotiation engine (plain code, deterministic):\*\* holds the seller's floor price and decides every counter-offer and whether to accept.
+\- \*\*Negotiation engine (plain code, deterministic):\*\* holds the seller's floor price and decides every counter-offer and whether to accept. Keep that floor private; Oja speaks in the seller's voice and only quotes the current counter-offer, never the floor or original discounted price.
 
 \- \*\*LLM:\*\* turns the buyer's message into structured data (e.g. `{intent: "offer", amount: 1800}`), then phrases the engine's decision in a friendly tone. It never sees the floor price. Even a successful prompt injection can't leak or breach what it doesn't know.
 
@@ -50,7 +50,7 @@ Output validation checks that any naira figure in the reply matches the engine's
 
 2\. Each buyer message goes through intent extraction, then the engine.
 
-3\. The engine uses the seller's settings (list price, maximum discount, concession style) to choose a counter. A simple approach is to concede in shrinking steps (say 50%, 30%, then 20% of the allowed discount), with an auto-accept when the buyer's offer is at or above the floor.
+3\. The engine uses the seller's settings (list price, maximum discount, concession style) to choose a counter within the range from the listed price to the seller's private floor. Oja speaks directly as the seller, making one friendly counter at a time; it never tells the buyer the floor or the seller's original discounted price. Accept an offer at or above the floor without revealing the floor itself.
 
 4\. On the 4th buyer message the agent must give a final answer (accept, a final counter, or walk away). Then the session expires.
 
@@ -146,7 +146,7 @@ A sensible stack: Next.js PWA, Neon Postgres, Redis for session and rate limits,
 
 ### Oja catalog search integration
 
-The current prototype uses Groq to rank only the existing Oja product catalog for natural-language searches. The model returns catalog IDs, and the app renders product names and prices from its own catalog; the model cannot invent products or change prices. If the API key is missing or Groq is unavailable, search falls back to the existing local keyword matching. This search assistant is separate from bargaining: bargaining decisions and seller price floors remain deterministic backend logic.
+The current prototype uses Groq to rank only the existing Oja product catalog for natural-language searches. The model returns catalog IDs, and the app renders product names and prices from its own catalog; the model cannot invent products or change prices. If the API key is missing or Groq is unavailable, search falls back to the existing local keyword matching. This search assistant is separate from bargaining: the demo accepts plain-language price offers and questions, but counteroffers and seller price floors remain deterministic.
 
 Set `GROQ_API_KEY` in `.env.local` (copy `.env.example`) to enable AI search. Keep the key server-side and never commit it. This prototype has no shared rate limiter or persistent search sessions; add Redis-backed limits before exposing it to production traffic.
 
@@ -156,5 +156,3 @@ Research checked 25 October 2026:
 - [Groq model lifecycle and migration guidance](https://console.groq.com/docs/deprecations)
 - [Groq GPT-OSS 20B model page](https://console.groq.com/docs/model/openai/gpt-oss-20b)
 - [Groq rate limits](https://console.groq.com/docs/rate-limits)
-
-

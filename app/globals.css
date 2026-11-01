@@ -188,7 +188,7 @@ h1, h2, h3, p { margin-top: 0; }
 .chat-disclaimer { margin: 0 0 9px; color: #989e96; font-size: 8px; }
 .offer-form { display: flex; align-items: center; height: 42px; border: 1px solid #dfe3da; border-radius: 5px; }
 .naira-symbol { padding-left: 12px; color: var(--green); font-weight: 700; }
-.offer-form input { flex: 1; min-width: 0; height: 100%; padding: 0 8px; border: 0; outline: 0; color: var(--ink); font-size: 12px; }
+.offer-form input { flex: 1; min-width: 0; height: 100%; padding: 0 12px; border: 0; outline: 0; color: var(--ink); font-size: 12px; }
 .offer-button { align-self: stretch; display: inline-flex; align-items: center; gap: 10px; margin: 3px; padding: 0 13px; border: 0; border-radius: 3px; background: var(--green); color: white; font-size: 9px; font-weight: 700; cursor: pointer; }
 .offer-button:disabled { background: #aeb6aa; cursor: not-allowed; }
 .chat-footer > small { display: block; margin: 7px 0 0 2px; color: #9aa095; font-size: 8px; }
